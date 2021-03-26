@@ -94,6 +94,13 @@ def receive_message(queue: botostubs.SQS):
         message.delete()
 
 
+def delete_queues(queues):
+    """キューの削除"""
+
+    for queue in queues:
+        queue.delete()
+
+
 if __name__ == '__main__':
     # SQSのService Resourceを使用したサンプル
 
@@ -149,3 +156,7 @@ if __name__ == '__main__':
 
     print('-----------メッセージ受信-----------')
     receive_message(queue2)
+
+    print('存在するキュー削除')
+    queues = [queue1, queue2]
+    delete_queues(queues)
