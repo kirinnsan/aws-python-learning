@@ -9,6 +9,7 @@ def create_table(dynamodb: botostubs.DynamoDB, table_name, schema, attribute, th
     """テーブル作成"""
 
     # create_table 呼び出しでは、テーブル名、プライマリキー属性、そのデータ型を指定します。
+    table = None
     try:
         table: botostubs.DynamoDB = dynamodb.create_table(
             TableName=table_name,
@@ -22,6 +23,7 @@ def create_table(dynamodb: botostubs.DynamoDB, table_name, schema, attribute, th
 
     except ClientError as e:
         print(e)
+        raise
 
     return table
 
@@ -34,6 +36,7 @@ def delete_table(dynamodb: botostubs.DynamoDB, table_name):
         table.delete()
     except ClientError as e:
         print(e)
+        raise
 
 
 def put_item(dynamodb: botostubs.DynamoDB, table_name, item):
@@ -44,6 +47,7 @@ def put_item(dynamodb: botostubs.DynamoDB, table_name, item):
         response = table.put_item(Item=item)
     except ClientError as e:
         print(e)
+        raise
 
     return response
 
@@ -58,14 +62,15 @@ def batch_put_item(dynamodb: botostubs.DynamoDB, table_name):
             for i in range(50):
                 batch.put_item(
                     Item={
-                        'account_type': 'anonymous',
-                        'username': 'user' + str(i),
-                        'first_name': 'unknown',
-                        'last_name': 'unknown'
+                        'accountType': 'anonymous',
+                        'userId': 'user' + str(i),
+                        'firstName': 'unknown',
+                        'lastName': 'unknown'
                     }
                 )
     except ClientError as e:
         print(e)
+        raise
 
 
 def get_item(dynamodb: botostubs.DynamoDB, table_name, key):
@@ -77,6 +82,20 @@ def get_item(dynamodb: botostubs.DynamoDB, table_name, key):
         response = table.get_item(Key=key)
     except ClientError as e:
         print(e)
+        raise
+
+    return response
+
+
+def scan(dynamodb: botostubs.DynamoDB, table_name):
+    """テーブルの全項目取得"""
+    table: botostubs.DynamoDB = dynamodb.Table(table_name)
+
+    try:
+        response = table.scan()
+    except ClientError as e:
+        print(e)
+        raise
 
     return response
 
@@ -92,6 +111,7 @@ def get_item_by_query(dynamodb: botostubs.DynamoDB, table_name, key, param):
         )
     except ClientError as e:
         print(e)
+        raise
 
     return response
 
@@ -108,6 +128,7 @@ def update_item(dynamodb: botostubs.DynamoDB, table_name, key,
                           ExpressionAttributeValues=value)
     except ClientError as e:
         print(e)
+        raise
 
 
 # テーブル内のクエリ検索及びスキャン
@@ -122,8 +143,8 @@ def update_item(dynamodb: botostubs.DynamoDB, table_name, key,
 
 # # 論理演算子を用いたスキャン検索
 # response = table.scan(
-#     FilterExpression=Attr('first_name').begins_with(
-#         'J') & Attr('account_type').eq('super_user')
+#     FilterExpression=Attr('firstName').begins_with(
+#         'J') & Attr('accountType').eq('super_user')
 # )
 # items = response['Items']
 # print('-----論理演算子を用いた結果-----')
@@ -131,8 +152,8 @@ def update_item(dynamodb: botostubs.DynamoDB, table_name, key,
 
 # # ネストされた属性に対してのスキャン検索
 # response = table.scan(
-#     FilterExpression=Attr('first_name').begins_with(
-#         'J') & Attr('account_type').eq('super_user')
+#     FilterExpression=Attr('firstName').begins_with(
+#         'J') & Attr('accountType').eq('super_user')
 # )
 # items = response['Items']
 # print('-----ネストされた属性に対してのスキャン結果-----')
@@ -145,52 +166,54 @@ if __name__ == '__main__':
     dynamodb: botostubs.DynamoDB = resource.create_aws_resource('dynamodb')
 
     print('-----------テーブル作成-----------')
-    tableName = 'users'
+    tableName = 'Person'
     schema = [
         {
-            'AttributeName': 'username',
+            'AttributeName': 'userId',
             'KeyType': 'HASH'  # パーテーションキー
         },
-        {
-            'AttributeName': 'last_name',
-            'KeyType': 'RANGE'  # ソートキー
-        }
     ]
     attributeDefinitions = [
         {
-            'AttributeName': 'username',
+            'AttributeName': 'userId',
             'AttributeType': 'S'
         },
         {
-            'AttributeName': 'last_name',
+            'AttributeName': 'firstName',
             'AttributeType': 'S'
         },
     ]
     provisionedThroughput = {
-        'ReadCapacityUnits': 5,
-        'WriteCapacityUnits': 5
+        'ReadCapacityUnits': 1,
+        'WriteCapacityUnits': 1
     }
     table = create_table(dynamodb, tableName, schema,
                          attributeDefinitions, provisionedThroughput)
 
     print('-----------アイテム作成-----------')
     item = {
-        'username': 'janedoeasfdsa',
-        'first_name': 'Jane',
-        'last_name': 'Doe',
-        'age': 26,
+        'userId': 'userId004',
+        'firstName': 'tanaka',
+        'lastName': 'taro',
+        'age': 30,
         'account_type': 'standard_user',
         'account_type1': 'standard_user1',
     }
     table = put_item(dynamodb, tableName, item)
+
+    print('-----------アイテムの一覧を取得-----------')
+    result = scan(dynamodb, tableName)
+    items = result['Items']
+    for item in items:
+        print(item)
 
     print('-----------アイテムをまとめて作成-----------')
     table = batch_put_item(dynamodb, tableName)
 
     print('-----------アイテム取得-----------')
     key = {
-        'username': 'janedoeasfdsa',
-        'last_name': 'Doe',
+        'userId': 'janedoeasfdsa',
+        'lastName': 'Doe',
     }
     result = get_item(dynamodb, tableName, key)
     item = result['Item']
@@ -200,7 +223,7 @@ if __name__ == '__main__':
     print(item)
 
     print('-----------アイテムのクエリー検索-----------')
-    key = 'username'
+    key = 'userId'
     param = 'johndoe'
     result = get_item_by_query(dynamodb, tableName, key, param)
     item = result['Items']
@@ -209,8 +232,8 @@ if __name__ == '__main__':
 
     print('-----------アイテム更新-----------')
     key = {
-        'username': 'janedoeasfdsa',
-        'last_name': 'Doe',
+        'userId': 'janedoeasfdsa',
+        'lastName': 'Doe',
     }
     expression = 'SET age = :val1'
     set_value = {':val1': 30}
